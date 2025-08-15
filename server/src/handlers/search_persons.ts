@@ -1,8 +1,24 @@
+import { db } from '../db';
+import { personsTable } from '../db/schema';
 import { type SearchPersonsInput, type Person } from '../schema';
+import { ilike, asc } from 'drizzle-orm';
 
 export async function searchPersons(input: SearchPersonsInput): Promise<Person[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is searching for persons by name using case-insensitive partial matching.
-    // It should return persons whose names contain the search query, ordered by relevance/name.
-    return Promise.resolve([]);
+  try {
+    // Use case-insensitive LIKE query with wildcards for partial matching
+    const results = await db.select()
+      .from(personsTable)
+      .where(ilike(personsTable.name, `%${input.query}%`))
+      .orderBy(asc(personsTable.name)) // Order by name for consistent results
+      .execute();
+
+    // Convert birth_date strings to Date objects to match schema
+    return results.map(person => ({
+      ...person,
+      birth_date: person.birth_date ? new Date(person.birth_date) : null
+    }));
+  } catch (error) {
+    console.error('Person search failed:', error);
+    throw error;
+  }
 }

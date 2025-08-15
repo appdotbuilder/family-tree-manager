@@ -1,15 +1,49 @@
+import { db } from '../db';
+import { personsTable } from '../db/schema';
 import { type UpdatePersonInput, type Person } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updatePerson(input: UpdatePersonInput): Promise<Person> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing person's details in the database.
-    // It should find the person by ID, update the provided fields, and return the updated person.
-    // Should throw an error if the person is not found.
-    return Promise.resolve({
-        id: input.id,
-        name: input.name || 'Updated Name', // Placeholder - should use existing value if not provided
-        birth_date: input.birth_date !== undefined ? input.birth_date : null, // Handle optional field
-        created_at: new Date(), // Should be preserved from original
-        updated_at: new Date() // Should be set to current time
-    } as Person);
-}
+export const updatePerson = async (input: UpdatePersonInput): Promise<Person> => {
+  try {
+    // First, check if the person exists
+    const existingPerson = await db.select()
+      .from(personsTable)
+      .where(eq(personsTable.id, input.id))
+      .execute();
+
+    if (existingPerson.length === 0) {
+      throw new Error(`Person with id ${input.id} not found`);
+    }
+
+    // Build the update object with only provided fields
+    const updateData: any = {
+      updated_at: new Date() // Always update the timestamp
+    };
+
+    if (input.name !== undefined) {
+      updateData.name = input.name;
+    }
+
+    if (input.birth_date !== undefined) {
+      // Convert Date to ISO date string format for database storage
+      updateData.birth_date = input.birth_date ? input.birth_date.toISOString().split('T')[0] : null;
+    }
+
+    // Update the person
+    const result = await db.update(personsTable)
+      .set(updateData)
+      .where(eq(personsTable.id, input.id))
+      .returning()
+      .execute();
+
+    // Convert date string to Date object for birth_date
+    const person = result[0];
+    return {
+      ...person,
+      birth_date: person.birth_date ? new Date(person.birth_date) : null
+    };
+  } catch (error) {
+    console.error('Person update failed:', error);
+    throw error;
+  }
+};

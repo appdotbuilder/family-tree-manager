@@ -1,8 +1,27 @@
+import { db } from '../db';
+import { personsTable } from '../db/schema';
+import { eq } from 'drizzle-orm';
 import { type Person } from '../schema';
 
 export async function getPersonById(id: number): Promise<Person | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching a single person by their ID from the database.
-    // It should return the person if found, or null if not found.
-    return Promise.resolve(null);
+  try {
+    const result = await db.select()
+      .from(personsTable)
+      .where(eq(personsTable.id, id))
+      .limit(1)
+      .execute();
+
+    if (result.length === 0) {
+      return null;
+    }
+
+    const person = result[0];
+    return {
+      ...person,
+      birth_date: person.birth_date ? new Date(person.birth_date) : null
+    };
+  } catch (error) {
+    console.error('Get person by ID failed:', error);
+    throw error;
+  }
 }
